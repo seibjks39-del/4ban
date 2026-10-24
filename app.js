@@ -3,7 +3,7 @@
   "use strict";
 
   // 替换成你自己的 Supabase 项目 URL 和 Publishable key
-  const SUPABASE_URL = "https://mitjykzlyfysxpefiupg.supabase.co/rest/v1/";
+  const SUPABASE_URL = "https://mitjykzlyfysxpefiupg.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oILV8x3jsJZoIgr7Thkm9A_gOstIwVN";
 
   const TOTAL = 20;
