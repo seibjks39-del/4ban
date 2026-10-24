@@ -1,0 +1,47 @@
+*{box-sizing:border-box}
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#202124;background:#fff;font-synthesis:none}
+body{margin:0;min-height:100vh}
+.topbar{height:auto;min-height:68px;padding:14px clamp(16px,4vw,52px);display:flex;align-items:center;justify-content:space-between;gap:14px;border-bottom:1px solid #eee;background:rgba(255,255,255,.96);position:sticky;top:0;z-index:5}
+.brand{font-size:clamp(19px,3vw,25px);font-weight:800;letter-spacing:.02em;white-space:nowrap}
+.clock{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-variant-numeric:tabular-nums}
+.clock-label{font-size:11px;color:#888}
+#beijing-time{font-size:clamp(12px,2.4vw,15px);font-weight:650}
+.wrap{max-width:1240px;margin:0 auto;padding:clamp(22px,4vw,48px) clamp(14px,3vw,28px) 56px}
+.intro{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:34px}
+.eyebrow{margin:0 0 8px;color:#999;font-size:11px;letter-spacing:.18em;font-weight:700}
+h1{font-size:clamp(28px,5vw,44px);line-height:1.15;margin:0;letter-spacing:-.04em}
+.subtitle{color:#777;margin:12px 0 0;font-size:15px}
+button,.upload-button,select{font:inherit}
+button,.upload-button{border:0;border-radius:10px;padding:11px 16px;cursor:pointer;font-weight:650;transition:background .15s,transform .15s}
+button:active,.upload-button:active{transform:scale(.98)}
+.primary,.upload-button{background:#202124;color:#fff}
+.primary:hover,.upload-button:hover{background:#3a3b3e}
+.quiet{background:#f3f3f3;color:#333}
+.danger{background:#fff0f0;color:#b42318}
+.admin-panel{border:1px solid #e9e9e9;border-radius:16px;padding:20px;margin:0 0 32px;background:#fcfcfc}
+.panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+h2{font-size:19px;margin:0}
+.panel-head p,.hint{font-size:13px;color:#777;line-height:1.6}
+.panel-head p{margin:7px 0 0}
+.admin-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:18px}
+.admin-controls label:not(.upload-button){font-size:13px;color:#555}
+select{min-height:42px;max-width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:9px;background:#fff}
+.upload-button{display:inline-flex;align-items:center;justify-content:center;min-height:42px}
+.hint{margin:16px 0 0}
+.status{font-size:13px;color:#287548;min-height:1em;margin:8px 0 0}
+.gallery-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.gallery-heading span{font-size:13px;color:#777}
+.gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.photo-card{min-width:0;border:1px solid #ededed;border-radius:13px;overflow:hidden;background:#fff}
+.photo-frame{aspect-ratio:4/3;position:relative;background:#f6f6f6;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.photo-frame img{width:100%;height:100%;object-fit:cover;display:block}
+.placeholder{display:flex;flex-direction:column;align-items:center;gap:8px;color:#aaa;text-align:center;padding:8px}
+.placeholder svg{width:30px;height:30px;stroke:currentColor;fill:none;stroke-width:1.5}
+.placeholder span{font-size:12px}
+.card-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px}
+.slot-name{font-size:12px;color:#555;font-weight:650}
+.card-action{font-size:11px;color:#777;background:#f3f3f3;padding:6px 8px;border-radius:7px;white-space:nowrap}
+footer{border-top:1px solid #eee;padding:22px clamp(16px,4vw,52px);display:flex;justify-content:space-between;gap:12px;color:#999;font-size:12px}
+[hidden]{display:none!important}
+@media(max-width:700px){.gallery{grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.photo-card{border-radius:8px}.card-meta{padding:7px 6px;align-items:flex-start;flex-direction:column;gap:5px}.slot-name{font-size:10px}.card-action{font-size:10px;padding:4px 6px}.photo-frame{aspect-ratio:3/4}.gallery-heading span{font-size:11px}.intro{align-items:flex-start}.primary{padding:10px 12px;white-space:nowrap}.admin-panel{padding:14px}.admin-controls{align-items:stretch}.admin-controls select{flex:1;min-width:130px}footer{flex-direction:column}}
+@media(max-width:360px){.gallery{gap:5px}.slot-name{font-size:9px}.card-action{font-size:9px}}
