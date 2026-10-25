@@ -62,9 +62,16 @@
 
       if (photos[key] && photos[key].url) {
         const img = document.createElement("img");
-        img.src = photos[key].url;
-        img.alt = `照片区域 ${i}`;
-        img.loading = "lazy";
+
+img.src = photos[key].url;
+img.alt = `照片区域 ${i}`;
+img.loading = "lazy";
+img.style.cursor = "zoom-in";
+img.addEventListener("click", () => {
+  openPhoto(img.src, img.alt);
+});
+frame.appendChild(img);
+
         frame.appendChild(img);
         added++;
       } else {
