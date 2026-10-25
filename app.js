@@ -422,4 +422,50 @@
       const old = photos[String(slot)];
 
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      con
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `slot-${slot}/${Date.now()}-${safeName}`;
+
+      message("正在上传…");
+      input.disabled = true;
+
+      try {
+        const { error: upErr } = await client.storage
+          .from(BUCKET)
+          .upload(path, file, { contentType: file.type });
+        if (upErr) throw upErr;
+
+        const { error: dbErr } = await client
+          .from("gallery_photos")
+          .upsert({ slot, file_path: path }, { onConflict: "slot" });
+        if (dbErr) throw dbErr;
+
+        if (old && old.path) {
+          await client.storage.from(BUCKET).remove([old.path]);
+        }
+
+        message("上传成功。");
+        await loadPhotos();
+      } catch (err) {
+        message("上传失败：" + (err.message || "请检查网络和权限。"));
+      } finally {
+        input.value = "";
+        input.disabled = false;
+      }
+    });
+  }
+
+  // 页面初始化
+  updateClock();
+  setInterval(updateClock, 1000);
+  render();
+
+  if (window.supabase && window.supabase.createClient) {
+    client = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_PUBLISHABLE_KEY
+    );
+    loadPhotos().catch(err => message("读取照片失败：" + err.message));
+  } else {
+    message("Supabase 库未加载，请检查 index.html。");
+  }
+})();
