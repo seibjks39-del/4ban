@@ -1,36 +1,36 @@
-  const closeBtn = document.getElementById("admin-close");
+(() => {
+  "use strict";
 
-  if (toggleBtn && panel) {
-    toggleBtn.addEventListener("click", () => {
-      panel.hidden = false;
-      panel.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+  // Supabase 配置（publishable key 可以公开；千万不要放 secret / service_role 密钥）
+  const SUPABASE_URL = "https://mitjykzlyfysxpefiupg.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oILV8x3jsJZoIgr7Thkm9A_gOstIwVN";
+
+  const TOTAL = 20;
+  const BUCKET = "product-images";
+
+  const gallery = document.getElementById("gallery");
+  const select = document.getElementById("slot-select");
+  const input = document.getElementById("photo-input");
+  const panel = document.getElementById("admin-panel");
+  const status = document.getElementById("admin-status");
+  const count = document.getElementById("photo-count");
+
+  let photos = {};
+  let client = null;
+  let currentUser = null;
+
+  function message(text) {
+    if (status) status.textContent = text;
   }
-  if (closeBtn && panel) {
-    closeBtn.addEventListener("click", () => {
-      panel.hidden = true;
-    });
-  }
 
-  // 页面初始化
-  updateClock();
-  setInterval(updateClock, 1000);
-  render();
-
-  if (window.supabase && window.supabase.createClient) {
-    client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-
-    // 所有访客打开页面就读取照片
-    loadPhotos().catch(err => message("读取照片失败：" + err.message));
-
-    // 如果之前登录过，自动恢复管理员状态
-    client.auth.getSession().then(({ data }) => {
-      if (data && data.session) {
-        currentUser = data.session.user;
-        checkAdminAndLoad().catch(() => {});
-      }
-    });
-  } else {
-    message("Supabase 库未加载，请检查网络或 index.html。");
-  }
-})();
+  // 显示北京时间
+  function updateClock() {
+    const clock = document.getElementById("beijing-time");
+    if (!clock) return;
+    clock.textContent = new Intl.DateTimeFormat("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      weekday: "short",
+      hour: "2-digit",
