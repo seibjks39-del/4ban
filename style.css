@@ -45,3 +45,71 @@ footer{border-top:1px solid #eee;padding:22px clamp(16px,4vw,52px);display:flex;
 [hidden]{display:none!important}
 @media(max-width:700px){.gallery{grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.photo-card{border-radius:8px}.card-meta{padding:7px 6px;align-items:flex-start;flex-direction:column;gap:5px}.slot-name{font-size:10px}.card-action{font-size:10px;padding:4px 6px}.photo-frame{aspect-ratio:3/4}.gallery-heading span{font-size:11px}.intro{align-items:flex-start}.primary{padding:10px 12px;white-space:nowrap}.admin-panel{padding:14px}.admin-controls{align-items:stretch}.admin-controls select{flex:1;min-width:130px}footer{flex-direction:column}}
 @media(max-width:360px){.gallery{gap:5px}.slot-name{font-size:9px}.card-action{font-size:9px}}
+
+/* 管理员登录区域 */
+#cloud-login {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-sizing: border-box;
+}
+
+#cloud-login p {
+  margin: 0 0 4px;
+  color: #555555;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+#cloud-login input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #222222;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+#cloud-login button,
+#cloud-logout {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #222222;
+  color: #ffffff;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+#cloud-login button:disabled,
+#cloud-logout:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+#admin-panel,
+#admin-panel * {
+  box-sizing: border-box;
+}
+
+#admin-panel[hidden],
+#cloud-login[hidden],
+#cloud-logout[hidden],
+.admin-controls[hidden] {
+  display: none !important;
+}
+
+#photo-viewer button {
+  -webkit-tap-highlight-color: transparent;
+}
+
