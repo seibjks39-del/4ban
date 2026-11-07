@@ -1,32 +1,51 @@
+
 (() => {
   "use strict";
 
-  // Supabase 配置（publishable key 可以公开；千万不要放 secret / service_role 密钥）
-  const SUPABASE_URL = "https://mitjykzlyfysxpefiupg.supabase.co";
-  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_oILV8x3jsJZoIgr7Thkm9A_gOstIwVN";
+  // =====================================
+  // 4班人能飞 - Supabase 云端照片墙
+  // 第一部分：基础配置和照片墙
+  // =====================================
 
-  const TOTAL = 20;
+  const SUPABASE_URL =
+    "https://mitjykzlyfysxpefiupg.supabase.co";
+
+  const SUPABASE_KEY =
+    "请替换成你的Supabase_Publishable_Key";
+
+  const TABLE = "gallery_photos";
+  const ADMIN_TABLE = "admins";
   const BUCKET = "product-images";
+  const TOTAL = 20;
 
+  // 页面元素
   const gallery = document.getElementById("gallery");
+  const clock = document.getElementById("beijing-time");
+  const count = document.getElementById("photo-count");
+  const panel = document.getElementById("admin-panel");
   const select = document.getElementById("slot-select");
   const input = document.getElementById("photo-input");
-  const panel = document.getElementById("admin-panel");
   const status = document.getElementById("admin-status");
-  const count = document.getElementById("photo-count");
+  const toggle = document.getElementById("admin-toggle");
+  const closeButton = document.getElementById("admin-close");
+  const clearButton = document.getElementById("clear-slot");
 
-  let photos = {};
-  let client = null;
+  let supabase = null;
   let currentUser = null;
+  let photos = {};
 
-  function message(text) {
-    if (status) status.textContent = text;
+  // 显示状态信息
+  function showStatus(message, error = false) {
+    if (!status) return;
+
+    status.textContent = message;
+    status.style.color = error ? "#b42318" : "#287548";
   }
 
-  // 显示北京时间
+  // 北京时间
   function updateClock() {
-    const clock = document.getElementById("beijing-time");
     if (!clock) return;
+
     clock.textContent = new Intl.DateTimeFormat("zh-CN", {
       timeZone: "Asia/Shanghai",
       year: "numeric",
@@ -40,38 +59,45 @@
     }).format(new Date());
   }
 
-  function placeholder() {
-    const box = document.createElement("div");
-    box.className = "placeholder";
-    const span = document.createElement("span");
-    span.textContent = "尚未添加照片";
-    box.appendChild(span);
+  // 创建元素
+  function createElement(tag, className, text) {
+    const element = document.createElement(tag);
+
+    if (className) element.className = className;
+    if (text !== undefined) element.textContent = text;
+
+    return element;
+  }
+
+  // 创建空白照片框
+  function createPlaceholder() {
+    const box = createElement("div", "placeholder");
+    const text = createElement("span", "", "尚未添加照片");
+
+    box.appendChild(text);
+
     return box;
   }
 
-  // 点击照片查看大图
+  // 图片大图查看
   function openPhoto(src, alt) {
     if (!src) return;
 
-    const existing = document.getElementById("photo-viewer");
-    if (existing) existing.remove();
+    const old = document.getElementById("photo-viewer");
+    if (old) old.remove();
 
     const viewer = document.createElement("div");
     viewer.id = "photo-viewer";
-    viewer.setAttribute("role", "dialog");
-    viewer.setAttribute("aria-modal", "true");
-    viewer.setAttribute("aria-label", "照片大图查看器");
 
     Object.assign(viewer.style, {
       position: "fixed",
       inset: "0",
       zIndex: "99999",
-      background: "rgba(0,0,0,0.92)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       padding: "16px",
-      boxSizing: "border-box"
+      background: "rgba(0,0,0,.92)"
     });
 
     const image = document.createElement("img");
@@ -79,18 +105,13 @@
     image.alt = alt || "照片大图";
 
     Object.assign(image.style, {
-      display: "block",
       maxWidth: "100%",
       maxHeight: "100%",
-      width: "auto",
-      height: "auto",
-      objectFit: "contain",
-      borderRadius: "4px"
+      objectFit: "contain"
     });
 
-    const close = document.createElement("button");
+    const close = createElement("button", "", "×");
     close.type = "button";
-    close.textContent = "×";
     close.setAttribute("aria-label", "关闭大图");
 
     Object.assign(close.style, {
@@ -99,283 +120,660 @@
       right: "16px",
       width: "44px",
       height: "44px",
+      padding: "0",
       border: "0",
       borderRadius: "50%",
       background: "#fff",
       color: "#111",
-      fontSize: "32px",
-      lineHeight: "1",
+      fontSize: "30px",
       cursor: "pointer"
     });
 
-    const closeViewer = () => {
+    function removeViewer() {
       viewer.remove();
-      document.removeEventListener("keydown", onKeyDown);
-    };
+      document.removeEventListener("keydown", onKey);
+    }
 
-    const onKeyDown = event => {
-      if (event.key === "Escape") closeViewer();
-    };
+    function onKey(event) {
+      if (event.key === "Escape") removeViewer();
+    }
 
-    close.addEventListener("click", closeViewer);
+    close.addEventListener("click", removeViewer);
+
     viewer.addEventListener("click", event => {
-      if (event.target === viewer) closeViewer();
+      if (event.target === viewer) removeViewer();
     });
-    image.addEventListener("click", event => event.stopPropagation());
-    document.addEventListener("keydown", onKeyDown);
+
+    image.addEventListener("click", event => {
+      event.stopPropagation();
+    });
+
+    document.addEventListener("keydown", onKey);
 
     viewer.append(image, close);
     document.body.appendChild(viewer);
-    close.focus();
   }
 
   // 渲染 20 个照片区域
-  function render() {
-    if (!gallery || !count) return;
+  function renderGallery() {
+    if (!gallery) return;
 
     gallery.replaceChildren();
-    let added = 0;
+
+    let totalAdded = 0;
 
     for (let i = 1; i <= TOTAL; i++) {
       const key = String(i);
+      const photo = photos[key];
 
-      const card = document.createElement("article");
-      card.className = "photo-card";
+      const card = createElement("article", "photo-card");
+      const frame = createElement("div", "photo-frame");
 
-      const frame = document.createElement("div");
-      frame.className = "photo-frame";
+      if (photo && photo.url) {
+        const image = document.createElement("img");
 
-      if (photos[key] && photos[key].url) {
-        const img = document.createElement("img");
-        img.src = photos[key].url;
-        img.alt = `照片区域 ${i}`;
-        img.loading = "lazy";
-        img.style.cursor = "zoom-in";
+        image.src = photo.url;
+        image.alt = `照片区域 ${i}`;
+        image.loading = "lazy";
+        image.style.cursor = "zoom-in";
 
-        img.addEventListener("click", () => {
-          openPhoto(img.currentSrc || img.src, img.alt);
-        });
-        img.addEventListener("error", () => {
-          img.alt = `照片区域 ${i} 加载失败`;
+        image.addEventListener("click", () => {
+          openPhoto(image.currentSrc || image.src, image.alt);
         });
 
-        frame.appendChild(img);
-        added++;
+        image.addEventListener("error", () => {
+          image.alt = `照片区域 ${i} 加载失败`;
+        });
+
+        frame.appendChild(image);
+        totalAdded++;
       } else {
-        frame.appendChild(placeholder());
+        frame.appendChild(createPlaceholder());
       }
 
-      const meta = document.createElement("div");
-      meta.className = "card-meta";
+      const meta = createElement("div", "card-meta");
 
-      const name = document.createElement("span");
-      name.className = "slot-name";
-      name.textContent = `照片 ${String(i).padStart(2, "0")}`;
+      const name = createElement(
+        "span",
+        "slot-name",
+        `照片 ${String(i).padStart(2, "0")}`
+      );
 
-      const action = document.createElement("span");
-      action.className = "card-action";
-      action.textContent = photos[key] ? "已添加" : "待添加";
+      const label = createElement(
+        "span",
+        "card-action",
+        photo ? "已添加" : "待添加"
+      );
 
-      meta.append(name, action);
+      meta.append(name, label);
       card.append(frame, meta);
       gallery.appendChild(card);
     }
 
-    count.textContent = `已添加 ${added} / ${TOTAL} 张`;
-  }
-
-  function makeElement(tag, text, className) {
-    const el = document.createElement(tag);
-    el.textContent = text;
-    if (className) el.className = className;
-    return el;
-  }
-
-  // 管理员登录界面
-  function buildLoginUI() {
-    const area = document.createElement("div");
-    area.id = "cloud-login";
-
-    const email = document.createElement("input");
-    email.type = "email";
-    email.placeholder = "管理员邮箱";
-    email.autocomplete = "username";
-    email.setAttribute("aria-label", "管理员邮箱");
-
-    const password = document.createElement("input");
-    password.type = "password";
-    password.placeholder = "管理员密码";
-    password.autocomplete = "current-password";
-    password.setAttribute("aria-label", "管理员密码");
-
-    const login = makeElement("button", "管理员登录", "primary");
-    login.type = "button";
-
-    const controls = document.querySelector(".admin-controls");
-    if (controls) controls.hidden = true;
-
-    login.addEventListener("click", async () => {
-      if (!client) {
-        message("Supabase 客户端尚未初始化，请检查网络和配置。");
-        return;
-      }
-      if (!email.value.trim() || !password.value) {
-        message("请输入管理员邮箱和密码。");
-        return;
-      }
-
-      login.disabled = true;
-      message("正在登录…");
-
-      try {
-        const { data, error } = await client.auth.signInWithPassword({
-          email: email.value.trim(),
-          password: password.value
-        });
-        if (error) throw error;
-
-        currentUser = data.user;
-        await checkAdminAndLoad();
-      } catch (err) {
-        message("登录失败：" + (err.message || "请检查账号、密码和网络。"));
-      } finally {
-        login.disabled = false;
-      }
-    });
-
-    area.append(
-      makeElement("p", "请使用已创建的管理员账号登录。"),
-      email,
-      password,
-      login
-    );
-
-    const logout = makeElement("button", "退出登录", "quiet");
-    logout.type = "button";
-    logout.hidden = true;
-    logout.id = "cloud-logout";
-
-    logout.addEventListener("click", async () => {
-      try {
-        if (client) await client.auth.signOut();
-      } finally {
-        currentUser = null;
-        if (controls) controls.hidden = true;
-        logout.hidden = true;
-        email.hidden = false;
-        password.hidden = false;
-        login.hidden = false;
-        message("已退出登录。");
-      }
-    });
-
-    if (!panel || !controls) {
-      console.error("缺少 #admin-panel 或 .admin-controls 元素，请检查 index.html。");
-    } else {
-      panel.insertBefore(area, controls);
-      panel.insertBefore(logout, controls);
+    if (count) {
+      count.textContent = `已添加 ${totalAdded} / ${TOTAL} 张`;
     }
-
-    return { area, email, password, login, logout, controls };
   }
 
-  // 创建照片区域下拉菜单
-  if (select) {
+  // 初始化 20 个下拉选项
+  function initializeSlots() {
+    if (!select) return;
+
+    select.replaceChildren();
+
     for (let i = 1; i <= TOTAL; i++) {
       const option = document.createElement("option");
+
       option.value = String(i);
       option.textContent = `照片 ${String(i).padStart(2, "0")}`;
+
       select.appendChild(option);
     }
   }
 
-  const ui = buildLoginUI();
+  // 后续代码从第二部分继续
 
-  // 从 Supabase 读取照片
-  async function loadPhotos() {
-    if (!client) throw new Error("Supabase 客户端尚未初始化。");
+  // =====================================
+  // 第二部分：管理员登录和云端读取
+  // =====================================
 
-    const { data, error } = await client
-      .from("gallery_photos")
-      .select("slot, file_path");
-    if (error) throw error;
+  // 创建管理员登录区域
+  function initializeLogin() {
+    if (!panel) return;
 
-    const nextPhotos = {};
-    for (const row of data || []) {
-      if (!row.file_path) continue;
-      const { data: urlData } = client.storage
-        .from(BUCKET)
-        .getPublicUrl(row.file_path);
-      nextPhotos[String(row.slot)] = {
-        path: row.file_path,
-        url: urlData.publicUrl
-      };
+    const loginBox = createElement("div", "");
+    loginBox.id = "cloud-login";
+
+    const title = createElement("h3", "", "管理员登录");
+    const email = document.createElement("input");
+    const password = document.createElement("input");
+    const loginButton = createElement("button", "primary", "登录");
+    const logoutButton = createElement("button", "quiet", "退出登录");
+
+    email.type = "email";
+    email.placeholder = "管理员邮箱";
+    email.autocomplete = "username";
+
+    password.type = "password";
+    password.placeholder = "管理员密码";
+    password.autocomplete = "current-password";
+
+    loginButton.type = "button";
+    logoutButton.type = "button";
+    logoutButton.hidden = true;
+
+    loginBox.append(title, email, password, loginButton);
+
+    const controls = panel.querySelector(".admin-controls");
+
+    if (controls) {
+      panel.insertBefore(loginBox, controls);
+      panel.insertBefore(logoutButton, controls);
+    } else {
+      panel.append(loginBox, logoutButton);
     }
 
-    photos = nextPhotos;
-    render();
+    function showLoggedIn(loggedIn) {
+      email.hidden = loggedIn;
+      password.hidden = loggedIn;
+      loginButton.hidden = loggedIn;
+      logoutButton.hidden = !loggedIn;
+
+      if (controls) {
+        controls.hidden = !loggedIn;
+      }
+    }
+
+    showLoggedIn(false);
+
+    loginButton.addEventListener("click", async () => {
+      const userEmail = email.value.trim();
+      const userPassword = password.value;
+
+      if (!userEmail || !userPassword) {
+        showStatus("请输入管理员邮箱和密码。", true);
+        return;
+      }
+
+      loginButton.disabled = true;
+      showStatus("正在登录……");
+
+      try {
+        const { data, error } =
+          await supabase.auth.signInWithPassword({
+            email: userEmail,
+            password: userPassword
+          });
+
+        if (error) throw error;
+
+        currentUser = data.user;
+
+        await verifyAdmin();
+      } catch (error) {
+        currentUser = null;
+        showLoggedIn(false);
+
+        showStatus(
+          "登录失败：" + (error.message || "请检查账号和密码。"),
+          true
+        );
+      } finally {
+        loginButton.disabled = false;
+      }
+    });
+
+    logoutButton.addEventListener("click", async () => {
+      try {
+        const { error } = await supabase.auth.signOut();
+
+        if (error) throw error;
+
+        currentUser = null;
+        showLoggedIn(false);
+
+        showStatus("已退出管理员账号。");
+      } catch (error) {
+        showStatus("退出失败：" + error.message, true);
+      }
+    });
+
+    return {
+      showLoggedIn
+    };
   }
 
-  // 检查管理员权限
-  async function checkAdminAndLoad() {
-    const { data: admin, error } = await client
-      .from("admins")
-      .select("user_id")
-      .eq("user_id", currentUser.id)
-      .maybeSingle();
+  const loginUI = initializeLogin();
 
-    if (error || !admin) {
-      await client.auth.signOut();
-      currentUser = null;
+  // 检查管理员身份
+  async function verifyAdmin() {
+    if (!currentUser) {
+      showStatus("请先登录。", true);
+      return false;
+    }
 
-      if (ui.controls) ui.controls.hidden = true;
-      ui.logout.hidden = true;
-      ui.email.hidden = false;
-      ui.password.hidden = false;
-      ui.login.hidden = false;
+    try {
+      const { data, error } = await supabase
+        .from(ADMIN_TABLE)
+        .select("user_id")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
 
-      message(
-        error
-          ? "无法验证管理员权限：" + error.message
-          : "此账号不是管理员，请检查 admins 表中的 user_id。"
+      if (error) throw error;
+
+      if (!data) {
+        await supabase.auth.signOut();
+
+        currentUser = null;
+
+        if (loginUI) {
+          loginUI.showLoggedIn(false);
+        }
+
+        showStatus(
+          "此账号没有管理员权限，请检查 admins 表。",
+          true
+        );
+
+        return false;
+      }
+
+      if (loginUI) {
+        loginUI.showLoggedIn(true);
+      }
+
+      showStatus("管理员登录成功。");
+
+      await loadPhotos();
+
+      return true;
+    } catch (error) {
+      showStatus(
+        "管理员验证失败：" + (error.message || "未知错误"),
+        true
+      );
+
+      return false;
+    }
+  }
+
+  // 云端读取照片
+  async function loadPhotos() {
+    if (!supabase) return;
+
+    showStatus("正在读取云端照片……");
+
+    try {
+      const { data, error } = await supabase
+        .from(TABLE)
+        .select("slot,file_path");
+
+      if (error) throw error;
+
+      const nextPhotos = {};
+
+      for (const row of data || []) {
+        const slot = Number(row.slot);
+        const path = row.file_path;
+
+        if (
+          !Number.isInteger(slot) ||
+          slot < 1 ||
+          slot > TOTAL ||
+          !path
+        ) {
+          continue;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from(BUCKET)
+          .getPublicUrl(path);
+
+        nextPhotos[String(slot)] = {
+          path,
+          url: urlData.publicUrl
+        };
+      }
+
+      photos = nextPhotos;
+
+      renderGallery();
+
+      showStatus("云端照片读取成功。");
+
+    } catch (error) {
+      console.error("读取照片失败：", error);
+
+      showStatus(
+        "读取照片失败：" +
+        (error.message || "请检查数据库和网络。"),
+        true
+      );
+
+      renderGallery();
+    }
+  }
+
+  // 监听登录状态变化
+  function watchAuth() {
+    if (!supabase) return;
+
+    supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "SIGNED_OUT") {
+          currentUser = null;
+
+          if (loginUI) {
+            loginUI.showLoggedIn(false);
+          }
+
+          return;
+        }
+
+        if (
+          event === "SIGNED_IN" &&
+          session &&
+          session.user
+        ) {
+          currentUser = session.user;
+          await verifyAdmin();
+        }
+      }
+    );
+  }
+
+  // 第三部分继续：上传、替换、清空和启动
+
+  // =====================================
+  // 第三部分：上传、替换、清空和启动
+  // =====================================
+
+  // 上传照片
+  async function uploadPhoto() {
+    if (!currentUser) {
+      showStatus("请先登录管理员账号。", true);
+      return;
+    }
+
+    const file = input && input.files && input.files[0];
+
+    if (!file) {
+      showStatus("请先选择照片。", true);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      showStatus("请选择图片文件。", true);
+      input.value = "";
+      return;
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      showStatus("照片不能超过 3MB，请压缩后重新上传。", true);
+      input.value = "";
+      return;
+    }
+
+    const slot = Number(select && select.value);
+
+    if (!Number.isInteger(slot) || slot < 1 || slot > TOTAL) {
+      showStatus("请选择正确的照片区域。", true);
+      return;
+    }
+
+    const oldPhoto = photos[String(slot)];
+
+    const safeName = file.name.replace(
+      /[^a-zA-Z0-9._-]/g,
+      "_"
+    );
+
+    const path =
+      `slot-${slot}-${Date.now()}-${safeName}`;
+
+    input.disabled = true;
+    showStatus("正在上传照片……");
+
+    try {
+      // 上传文件到 Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, {
+          upsert: false,
+          contentType: file.type
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 写入数据库
+      // 同时写 file_path 和 object_path，
+      // 兼容旧表中 object_path 的非空限制。
+      const { error: databaseError } = await supabase
+        .from(TABLE)
+        .upsert(
+          {
+            slot: slot,
+            file_path: path,
+            object_path: path,
+            updated_at: new Date().toISOString()
+          },
+          {
+            onConflict: "slot"
+          }
+        );
+
+      if (databaseError) {
+        await supabase.storage
+          .from(BUCKET)
+          .remove([path]);
+
+        throw databaseError;
+      }
+
+      // 删除被替换的旧照片
+      if (oldPhoto && oldPhoto.path) {
+        const { error: oldError } = await supabase.storage
+          .from(BUCKET)
+          .remove([oldPhoto.path]);
+
+        if (oldError) {
+          console.warn("旧照片清理失败：", oldError.message);
+        }
+      }
+
+      await loadPhotos();
+
+      showStatus(`照片区域 ${slot} 上传成功！`);
+
+    } catch (error) {
+      console.error("照片上传失败：", error);
+
+      showStatus(
+        "上传失败：" + (error.message || "未知错误"),
+        true
+      );
+
+    } finally {
+      input.disabled = false;
+      input.value = "";
+    }
+  }
+
+  // 监听上传
+  if (input) {
+    input.addEventListener("change", uploadPhoto);
+  }
+
+  // 清空当前照片区域
+  async function clearPhoto() {
+    if (!currentUser) {
+      showStatus("请先登录管理员账号。", true);
+      return;
+    }
+
+    const slot = Number(select && select.value);
+    const photo = photos[String(slot)];
+
+    if (!photo) {
+      showStatus("这个照片区域目前是空的。", true);
+      return;
+    }
+
+    const confirmed = confirm(
+      `确定清空照片区域 ${slot} 吗？`
+    );
+
+    if (!confirmed) return;
+
+    if (clearButton) {
+      clearButton.disabled = true;
+    }
+
+    showStatus("正在清空照片……");
+
+    try {
+      // 先删除数据库记录
+      const { error: databaseError } = await supabase
+        .from(TABLE)
+        .delete()
+        .eq("slot", slot);
+
+      if (databaseError) throw databaseError;
+
+      // 再删除 Storage 文件
+      const { error: storageError } = await supabase.storage
+        .from(BUCKET)
+        .remove([photo.path]);
+
+      if (storageError) {
+        console.warn("云端文件清理失败：", storageError.message);
+      }
+
+      await loadPhotos();
+
+      showStatus(`照片区域 ${slot} 已清空。`);
+
+    } catch (error) {
+      console.error("清空照片失败：", error);
+
+      showStatus(
+        "清空失败：" + (error.message || "未知错误"),
+        true
+      );
+
+    } finally {
+      if (clearButton) {
+        clearButton.disabled = false;
+      }
+    }
+  }
+
+  if (clearButton) {
+    clearButton.addEventListener("click", clearPhoto);
+  }
+
+  // 打开管理面板
+  if (toggle && panel) {
+    toggle.addEventListener("click", () => {
+      panel.hidden = false;
+
+      panel.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    });
+  }
+
+  // 收起管理面板
+  if (closeButton && panel) {
+    closeButton.addEventListener("click", () => {
+      panel.hidden = true;
+    });
+  }
+
+  // 初始化网站
+  async function start() {
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    initializeSlots();
+    renderGallery();
+
+    // 检查必要页面元素
+    if (
+      !gallery ||
+      !select ||
+      !input ||
+      !panel ||
+      !status ||
+      !count
+    ) {
+      console.error("网页缺少必要元素，请检查 index.html。");
+      return;
+    }
+
+    // 检查 Supabase 配置
+    if (
+      !window.supabase ||
+      typeof window.supabase.createClient !== "function"
+    ) {
+      showStatus(
+        "Supabase 客户端加载失败，请检查网络和 CDN。",
+        true
       );
       return;
     }
 
-    if (ui.controls) ui.controls.hidden = false;
-    ui.logout.hidden = false;
-    ui.email.hidden = true;
-    ui.password.hidden = true;
-    ui.login.hidden = true;
+    if (
+      !SUPABASE_KEY ||
+      SUPABASE_KEY.includes("请替换")
+    ) {
+      showStatus(
+        "请先在 app.js 中填写你的 Supabase Publishable Key。",
+        true
+      );
+      return;
+    }
 
-    message("管理员已登录，可以管理照片。");
-    await loadPhotos();
+    try {
+      // 创建 Supabase 客户端
+      supabase = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+      );
+
+      // 获取当前登录状态
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) throw error;
+
+      watchAuth();
+
+      if (data.session && data.session.user) {
+        currentUser = data.session.user;
+
+        await verifyAdmin();
+
+      } else {
+        currentUser = null;
+
+        // 访客读取公开照片
+        await loadPhotos();
+      }
+
+      console.log("4班人能飞网站初始化完成。");
+
+    } catch (error) {
+      console.error("网站初始化失败：", error);
+
+      showStatus(
+        "网站连接失败：" + (error.message || "未知错误"),
+        true
+      );
+    }
   }
 
-  // 上传 / 替换照片
-  if (input) {
-    input.addEventListener("change", async () => {
-      const file = input.files && input.files[0];
-      if (!file) return;
+  // 启动网站
+  start();
 
-      if (!currentUser) {
-        message("请先登录管理员账号。");
-        input.value = "";
-        return;
-      }
-      if (!file.type.startsWith("image/")) {
-        message("请选择图片文件。");
-        input.value = "";
-        return;
-      }
-      if (file.size > 3 * 1024 * 1024) {
-        message("图片不能超过 3 MB，请先压缩后再上传。");
-        input.value = "";
-        return;
-      }
-
-      const slot = Number(select.value);
-      const old = photos[String(slot)];
-
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const path = `slot-${slot}/${Date
+})();
