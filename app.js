@@ -11,7 +11,7 @@
     "https://mitjykzlyfysxpefiupg.supabase.co";
 
   const SUPABASE_KEY =
-    "请替换成你的Supabase_Publishable_Key";
+    "sb_publishable_oILV8x3jsJZoIgr7Thkm9A_gOstIwVN";
 
   const TABLE = "gallery_photos";
   const ADMIN_TABLE = "admins";
